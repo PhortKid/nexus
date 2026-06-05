@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS — Digital Game Store</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Bebas Neue', 'sans-serif'],
+            body:    ['DM Sans',    'sans-serif'],
+          },
+          colors: {
+            brand:  { DEFAULT: '#7C3AED', light: '#9F67FF', dark: '#5B21B6' },
+            neon:   { DEFAULT: '#10B981', light: '#34D399' },
+            ink:    { 900: '#0D0E14', 800: '#13141D', 700: '#1A1C28', 600: '#22253A', 500: '#2E3250' },
+          },
+          boxShadow: {
+            card: '0 0 0 1px rgba(124,58,237,.15), 0 4px 24px rgba(0,0,0,.6)',
+            glow: '0 0 24px rgba(124,58,237,.5)',
+          },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background-color: #0D0E14;
+      color: #E2E8F0;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 9999; opacity: .4;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0D0E14; }
+    ::-webkit-scrollbar-thumb { background: #7C3AED; border-radius: 3px; }
+    .hero-mesh {
+      background:
+        radial-gradient(ellipse 80% 60% at 60% 40%, rgba(124,58,237,.18) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 40% at 10% 80%, rgba(16,185,129,.10) 0%, transparent 60%),
+        #0D0E14;
+    }
+    /* Game card */
+    .game-card { transition: transform .25s ease, box-shadow .25s ease; }
+    .game-card:hover { transform: translateY(-6px); box-shadow: 0 0 0 1px rgba(124,58,237,.4), 0 8px 40px rgba(0,0,0,.8); }
+    /* Card image overlay gradient */
+    .card-img-wrap { position: relative; overflow: hidden; height: 200px; }
+    .card-img-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease; }
+    .game-card:hover .card-img-wrap img { transform: scale(1.06); }
+    .card-img-wrap::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(to bottom, transparent 50%, rgba(13,14,20,.95) 100%);
+      pointer-events: none;
+    }
+    /* Fallback gradient shown before image loads */
+    .card-img-wrap { background: linear-gradient(135deg, #1A1C28, #22253A); }
+    /* Toast */
+    @keyframes slideIn  { from{transform:translateX(120%);opacity:0} to{transform:translateX(0);opacity:1} }
+    @keyframes slideOut { from{transform:translateX(0);opacity:1} to{transform:translateX(120%);opacity:0} }
+    .toast-enter { animation: slideIn .35s ease forwards; }
+    .toast-exit  { animation: slideOut .35s ease forwards; }
+    /* Badge pulse */
+    @keyframes pulse-ring { 0%{box-shadow:0 0 0 0 rgba(124,58,237,.7)} 70%{box-shadow:0 0 0 8px transparent} 100%{box-shadow:0 0 0 0 transparent} }
+    .badge-pulse { animation: pulse-ring 1.8s infinite; }
+    /* Nav link underline */
+    .nav-link { position: relative; }
+    .nav-link::after { content:''; position:absolute; bottom:-2px; left:0; width:0; height:2px; background:#7C3AED; transition:width .25s ease; }
+    .nav-link:hover::after { width:100%; }
+    /* Modal */
+    #modal-backdrop { backdrop-filter: blur(6px); }
+    /* Filter active */
+    .filter-btn.active { background-color: #7C3AED; color: #fff; border-color: #7C3AED; }
+    .filter-btn { transition: all .2s ease; }
+    /* Buy button shine */
+    .btn-buy { position: relative; overflow: hidden; transition: background .2s ease, transform .15s ease; }
+    .btn-buy::after {
+      content:''; position:absolute; top:0; left:-75%; width:50%; height:100%;
+      background:linear-gradient(120deg,transparent,rgba(255,255,255,.18),transparent);
+      transform:skewX(-20deg); transition:left .45s ease;
+    }
+    .btn-buy:hover::after { left:125%; }
+    .btn-buy:hover { transform: scale(1.03); }
+    .btn-buy:active { transform: scale(.97); }
+    /* Hype badge */
+    .hype-badge {
+      background: linear-gradient(90deg, #7C3AED, #10B981);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      font-weight: 700; font-size: .7rem;
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<!-- ═══ HEADER ═══ -->
+<header class="sticky top-0 z-50 bg-ink-900/90 backdrop-blur-md border-b border-ink-600">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav class="flex items-center justify-between h-16 gap-4">
+      <a href="#" class="flex items-center gap-2 flex-shrink-0">
+        <div class="w-8 h-8 rounded-lg bg-brand flex items-center justify-center shadow-glow">
+          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M7 6h10a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4v-4a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H7zm1 3h2v-1a.5.5 0 0 1 1 0v1h1a.5.5 0 0 1 0 1h-1v1a.5.5 0 0 1-1 0v-1H8a.5.5 0 0 1 0-1zm7 .5a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0zm2 1.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z"/>
+          </svg>
+        </div>
+        <span class="font-display text-2xl tracking-widest text-white">NEXUS</span>
+      </a>
+
+      <div class="hidden sm:flex flex-1 max-w-md relative">
+        <input type="text" placeholder="Search games…"
+          class="w-full bg-ink-700 border border-ink-500 rounded-lg pl-10 pr-4 py-2 text-sm text-slate-300 placeholder-slate-500 focus:outline-none focus:border-brand focus:bg-ink-600 transition-colors"/>
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+        </svg>
+      </div>
+
+      <div class="flex items-center gap-5">
+        <a href="#" class="nav-link hidden md:block text-sm text-slate-400 hover:text-white font-medium">Browse</a>
+        <a href="#" class="nav-link hidden md:block text-sm text-slate-400 hover:text-white font-medium">Deals</a>
+        <a href="#" class="nav-link hidden md:block text-sm text-slate-400 hover:text-white font-medium">Library</a>
+        <button id="cart-btn" class="relative p-2 rounded-lg hover:bg-ink-600 transition-colors group" aria-label="Shopping cart">
+          <svg class="w-6 h-6 text-slate-300 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 9m12-9l2 9M9 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm10 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
+          </svg>
+          <span id="cart-count" class="badge-pulse absolute -top-1 -right-1 w-5 h-5 bg-brand rounded-full text-xs text-white font-bold flex items-center justify-center hidden">0</span>
+        </button>
+        <button class="hidden sm:flex items-center gap-1.5 bg-brand hover:bg-brand-light text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+          Sign In
+        </button>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero-mesh relative py-20 sm:py-28 lg:py-36 overflow-hidden">
+  <div class="absolute -top-20 -right-20 w-96 h-96 bg-brand/10 rounded-full blur-3xl pointer-events-none"></div>
+  <div class="absolute bottom-0 left-10 w-64 h-64 bg-neon/8 rounded-full blur-3xl pointer-events-none"></div>
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-2xl">
+      <span class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-neon bg-neon/10 border border-neon/20 px-3 py-1.5 rounded-full mb-6">
+       <!-- <span class="w-1.5 h-1.5 bg-neon rounded-full animate-pulse"></span>
+        Top 10 Most Hyped Mobile Games · 2026
+      </span>-->
+      <h1 class="font-display text-6xl sm:text-7xl lg:text-8xl leading-none tracking-wider text-white mb-6">
+        LEVEL UP<br/>
+        <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-light to-neon">YOUR WORLD</span>
+      </h1>
+      <p class="text-slate-400 text-lg sm:text-xl leading-relaxed mb-10 max-w-lg">
+        The most hyped upcoming mobile games from <a href="https://minireview.io/upcoming" target="_blank" class="text-brand hover:text-brand-light underline underline-offset-2">MiniReview</a>. Pre-register &amp; be first to download.
+      </p>
+      <div class="flex flex-wrap gap-4">
+        <a href="#games" class="btn-buy inline-flex items-center gap-2 bg-brand hover:bg-brand-light text-white font-semibold px-8 py-3.5 rounded-xl shadow-glow transition-all">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 1 0 0 16A8 8 0 0 0 10 2zm.75 11.5h-1.5v-5h1.5v5zm0-6.5h-1.5V5.5h1.5V7z"/></svg>
+          Browse Store
+        </a>
+        <a href="https://minireview.io/upcoming" target="_blank" class="inline-flex items-center gap-2 border border-ink-500 hover:border-brand text-slate-300 hover:text-white font-semibold px-8 py-3.5 rounded-xl transition-all">
+          View on MiniReview
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+      <div class="flex flex-wrap gap-8 mt-12 pt-8 border-t border-ink-600">
+        <div><p class="font-display text-3xl tracking-wider text-white">102+</p><p class="text-xs text-slate-500 uppercase tracking-widest">Upcoming Games</p></div>
+        <div><p class="font-display text-3xl tracking-wider text-white">4M+</p><p class="text-xs text-slate-500 uppercase tracking-widest">Players</p></div>
+        <div><p class="font-display text-3xl tracking-wider text-white">Free</p><p class="text-xs text-slate-500 uppercase tracking-widest">Most Titles</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ GAME STORE ═══ -->
+<section id="games" class="py-16 sm:py-20 bg-ink-800">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
+      <div>
+        <p class="text-xs text-brand font-semibold uppercase tracking-widest mb-1">Source: minireview.io/upcoming</p>
+        <h2 class="font-display text-4xl sm:text-5xl tracking-wider text-white">MOST HYPED GAMES</h2>
+      </div>
+      <div class="flex gap-2" id="filter-bar" role="group" aria-label="Category filters">
+        <button data-filter="all"    class="filter-btn active text-sm font-semibold px-4 py-2 rounded-lg border border-ink-500 text-slate-300 hover:border-brand hover:text-white">All</button>
+        <button data-filter="PC"     class="filter-btn        text-sm font-semibold px-4 py-2 rounded-lg border border-ink-500 text-slate-300 hover:border-brand hover:text-white">PC Games</button>
+        <button data-filter="Mobile" class="filter-btn        text-sm font-semibold px-4 py-2 rounded-lg border border-ink-500 text-slate-300 hover:border-brand hover:text-white">Mobile Games</button>
+      </div>
+    </div>
+    <div id="game-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+  </div>
+</section>
+
+<!-- ═══ PROMO STRIP ═══ -->
+<section class="bg-gradient-to-r from-brand-dark via-brand to-brand-light py-12">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left">
+    <div>
+      <h3 class="font-display text-3xl sm:text-4xl tracking-wider text-white">PRE-REGISTER NOW</h3>
+      <p class="text-white/80 mt-1">Secure early access &amp; exclusive launch rewards before the crowd.</p>
+    </div>
+    <a href="https://minireview.io/upcoming" target="_blank" class="flex-shrink-0 bg-white text-brand font-bold px-8 py-3 rounded-xl hover:bg-slate-100 transition-colors shadow-lg">
+      See All 102 Games →
+    </a>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer class="bg-ink-900 border-t border-ink-600">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+      <div class="col-span-2 md:col-span-1">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M7 6h10a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4v-4a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H7zm1 3h2v-1a.5.5 0 0 1 1 0v1h1a.5.5 0 0 1 0 1h-1v1a.5.5 0 0 1-1 0v-1H8a.5.5 0 0 1 0-1zm7 .5a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0zm2 1.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z"/>
+            </svg>
+          </div>
+          <span class="font-display text-2xl tracking-widest text-white">NEXUS</span>
+        </div>
+        <p class="text-slate-500 text-sm leading-relaxed">Your gateway to the best upcoming mobile &amp; PC gaming experiences.</p>
+      </div>
+      <div>
+        <h4 class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">Store</h4>
+        <ul class="space-y-2 text-sm text-slate-500">
+          <li><a href="#" class="hover:text-white transition-colors">Browse All</a></li>
+          <li><a href="#" class="hover:text-white transition-colors">New Releases</a></li>
+          <li><a href="#" class="hover:text-white transition-colors">Top Sellers</a></li>
+          <li><a href="#" class="hover:text-white transition-colors">On Sale</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">Support</h4>
+        <ul class="space-y-2 text-sm text-slate-500">
+          <li><a href="#" class="hover:text-white transition-colors">Help Center</a></li>
+          <li><a href="#" class="hover:text-white transition-colors">Refunds</a></li>
+          <li><a href="#" class="hover:text-white transition-colors">Community</a></li>
+          <li><a href="#" class="hover:text-white transition-colors">Contact Us</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">Company</h4>
+        <ul class="space-y-2 text-sm text-slate-500">
+          <li><a href="#" class="hover:text-white transition-colors">About</a></li>
+          <li><a href="#" class="hover:text-white transition-colors">Careers</a></li>
+          <li><a href="#" class="hover:text-white transition-colors">Privacy Policy</a></li>
+          <li><a href="#" class="hover:text-white transition-colors">Terms of Service</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-ink-600 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-slate-600">
+      <p>© 2026 NEXUS Digital Store. All rights reserved.</p>
+      <p>Game data sourced from <a href="https://minireview.io/upcoming" target="_blank" class="hover:text-slate-400 underline">minireview.io</a> · Demo only</p>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══ PAYMENT MODAL ═══ -->
+<div id="modal-backdrop"
+     class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 hidden"
+     role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div id="modal-box" class="relative w-full max-w-md bg-ink-800 border border-ink-500 rounded-2xl shadow-2xl overflow-hidden">
+    <div class="h-1 w-full bg-gradient-to-r from-brand to-neon"></div>
+    <div class="flex items-start justify-between px-6 pt-6 pb-4 border-b border-ink-600">
+      <div>
+        <p class="text-xs text-brand font-semibold uppercase tracking-widest mb-1">Secure Checkout</p>
+        <h2 id="modal-title" class="font-display text-2xl tracking-wider text-white">COMPLETE PURCHASE</h2>
+        <p id="modal-game-title" class="text-slate-400 text-sm mt-0.5"></p>
+      </div>
+      <button id="modal-close" class="text-slate-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-ink-600" aria-label="Close">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Order summary with real thumbnail -->
+    <div class="px-6 py-4 flex items-center gap-4 bg-ink-700/50">
+      <div id="modal-thumb" class="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-ink-600">
+        <img id="modal-thumb-img" src="" alt="" class="w-full h-full object-cover" />
+      </div>
+      <div class="flex-1 min-w-0">
+        <p id="modal-game-name" class="text-white font-semibold truncate"></p>
+        <p class="text-slate-400 text-xs">Instant Digital Download · Mobile</p>
+      </div>
+      <p id="modal-price" class="font-display text-2xl tracking-wider text-neon"></p>
+    </div>
+
+    <div class="px-6 py-5">
+      <p class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">Payment Method</p>
+      <div class="grid grid-cols-2 gap-3 mb-5">
+        <label class="relative cursor-pointer">
+          <input type="radio" name="payment" value="card" class="sr-only peer" checked />
+          <div class="flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-ink-500 peer-checked:border-brand peer-checked:bg-brand/10 transition-all text-center">
+            <svg class="w-7 h-7 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 10h18M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6z"/>
+            </svg>
+            <span class="text-xs font-semibold text-slate-300">Credit Card</span>
+          </div>
+        </label>
+        <label class="relative cursor-pointer">
+          <input type="radio" name="payment" value="mobile" class="sr-only peer" />
+          <div class="flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-ink-500 peer-checked:border-brand peer-checked:bg-brand/10 transition-all text-center">
+            <svg class="w-7 h-7 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 18h.01M8 21h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2z"/>
+            </svg>
+            <span class="text-xs font-semibold text-slate-300">Mobile Money</span>
+          </div>
+        </label>
+      </div>
+      <div id="card-fields" class="space-y-3 mb-5">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Card Number</label>
+          <input type="text" placeholder="•••• •••• •••• ••••" maxlength="19"
+            class="w-full bg-ink-700 border border-ink-500 rounded-lg px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-brand transition-colors"/>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Expiry</label>
+            <input type="text" placeholder="MM / YY" maxlength="7"
+              class="w-full bg-ink-700 border border-ink-500 rounded-lg px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-brand transition-colors"/>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">CVV</label>
+            <input type="text" placeholder="•••" maxlength="4"
+              class="w-full bg-ink-700 border border-ink-500 rounded-lg px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-brand transition-colors"/>
+          </div>
+        </div>
+      </div>
+      <div id="mobile-fields" class="hidden space-y-3 mb-5">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Mobile Number</label>
+          <input type="tel" placeholder="+255 7XX XXX XXX"
+            class="w-full bg-ink-700 border border-ink-500 rounded-lg px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-brand transition-colors"/>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Provider</label>
+          <select class="w-full bg-ink-700 border border-ink-500 rounded-lg px-4 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-brand transition-colors">
+            <option>M-Pesa</option><option>Airtel Money</option><option>Tigo Pesa</option><option>Halopesa</option>
+          </select>
+        </div>
+      </div>
+      <button id="confirm-payment-btn"
+        class="btn-buy w-full bg-neon hover:bg-neon-light text-ink-900 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 text-base shadow-lg">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2zm10-10V7a4 4 0 0 0-8 0v4h8z"/>
+        </svg>
+        Confirm Payment
+      </button>
+      <p class="text-center text-xs text-slate-600 mt-3">🔒 256-bit SSL · Demo only — no real charges</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TOAST ═══ -->
+<div id="toast" class="fixed bottom-6 right-6 z-50 hidden max-w-sm w-full">
+  <div class="flex items-start gap-3 bg-ink-700 border border-neon/30 rounded-xl p-4 shadow-2xl">
+    <div class="w-9 h-9 rounded-full bg-neon/20 flex items-center justify-center flex-shrink-0">
+      <svg class="w-5 h-5 text-neon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+      </svg>
+    </div>
+    <div>
+      <p class="text-white font-semibold text-sm">Payment Successful!</p>
+      <p id="toast-msg" class="text-slate-400 text-xs mt-0.5"></p>
+    </div>
+    <button id="toast-close" class="ml-auto text-slate-500 hover:text-white">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════ -->
+<script>
+/* ────────────────────────────────────────────────
+   GAME DATA
+   All 10 most-hyped upcoming mobile games from minireview.io/upcoming.
+   Images: official cover art from publicly accessible CDNs.
+   All prices are simulated for demo purposes.
+──────────────────────────────────────────────── */
+const GAMES = [
+  {
+    id: 1,
+    title: "OFF THE ROAD 2",
+    genre: "Racing · Action",
+    platform: "Mobile",
+    price: 0,           // Free to Play
+    tag: "#1 Most Hyped",
+    hype: "🔥 2 votes",
+    launchDate: "2026",
+    // Official minireview og:image (confirmed from fetch)
+    img: "https://minireview.io/common/uploads/upcominggame/images-503098.jpeg",
+    fallbackGradient: "linear-gradient(135deg,#1A3A2A 0%,#2D6A4F 100%)",
+    link: "https://minireview.io/upcoming/off-the-road-2",
+  },
+  {
+    id: 2,
+    title: "Path of Exile Mobile",
+    genre: "Action RPG",
+    platform: "Mobile",
+    price: 0,
+    tag: "#2 Most Hyped",
+    hype: "⚡ 4 votes",
+    launchDate: "2026",
+    img: "https://cdn.akamai.steamstatic.com/steam/apps/238960/header.jpg",
+    fallbackGradient: "linear-gradient(135deg,#1A0A2E 0%,#4A1080 100%)",
+    link: "https://minireview.io/upcoming/path-of-exile-mobile",
+  },
+  {
+    id: 3,
+    title: "Palworld Mobile",
+    genre: "Survival · Adventure",
+    platform: "Mobile",
+    price: 0,
+    tag: "#3 Most Hyped",
+    hype: "⚡ 4 votes",
+    launchDate: "2026",
+    img: "https://cdn.akamai.steamstatic.com/steam/apps/1623730/header.jpg",
+    fallbackGradient: "linear-gradient(135deg,#0D2B1A 0%,#1A6B3A 100%)",
+    link: "https://minireview.io/upcoming/palworld",
+  },
+  {
+    id: 4,
+    title: "Don't Starve Together",
+    genre: "Survival · Co-op",
+    platform: "Mobile",
+    price: 0,
+    tag: "#4 Most Hyped",
+    hype: "⚡ 4 votes",
+    launchDate: "2026",
+    img: "https://cdn.akamai.steamstatic.com/steam/apps/322330/header.jpg",
+    fallbackGradient: "linear-gradient(135deg,#1A1000 0%,#5A3A00 100%)",
+    link: "https://minireview.io/upcoming/don-t-starve-together",
+  },
+  {
+    id: 5,
+    title: "The Bazaar",
+    genre: "Deck-Building · Roguelike",
+    platform: "Mobile",
+    price: 0,
+    tag: "#5 Most Hyped",
+    hype: "⚡ 3 votes",
+    launchDate: "Jun 18, 2026",
+    img: "https://cdn.akamai.steamstatic.com/steam/apps/2287450/header.jpg",
+    fallbackGradient: "linear-gradient(135deg,#1A0E00 0%,#6B3A00 100%)",
+    link: "https://minireview.io/upcoming/the-bazaar",
+  },
+  {
+    id: 6,
+    title: "Ananta",
+    genre: "MMORPG · Action",
+    platform: "Mobile",
+    price: 0,
+    tag: "#6 Most Hyped",
+    hype: "⚡ 3 votes",
+    launchDate: "2026",
+    img: "https://cdn.akamai.steamstatic.com/steam/apps/2835570/header.jpg",
+    fallbackGradient: "linear-gradient(135deg,#0E0A2E 0%,#3A1A7C 100%)",
+    link: "https://minireview.io/upcoming/ananta",
+  },
+  {
+    id: 7,
+    title: "Valorant Mobile",
+    genre: "Shooter · Action",
+    platform: "Mobile",
+    price: 0,
+    tag: "#7 Most Hyped",
+    hype: "⚡ 1 vote",
+    launchDate: "Jul 2, 2026",
+    img: "https://cdn.akamai.steamstatic.com/apps/valorant/capsule_616x353.jpg",
+    fallbackGradient: "linear-gradient(135deg,#1A0000 0%,#7C1A1A 100%)",
+    link: "https://minireview.io/upcoming/valorant-mobile",
+  },
+  {
+    id: 8,
+    title: "Dorfromantik",
+    genre: "Simulation · Point 'n Click",
+    platform: "Mobile",
+    price: 2.99,
+    tag: "#8 Most Hyped",
+    hype: "⚡ 3 votes",
+    launchDate: "Jul 23, 2026",
+    img: "https://cdn.akamai.steamstatic.com/steam/apps/1455840/header.jpg",
+    fallbackGradient: "linear-gradient(135deg,#0A1A0E 0%,#2A5A2E 100%)",
+    link: "https://minireview.io/upcoming/dorfromantik",
+  },
+  {
+    id: 9,
+    title: "DYSPLACED",
+    genre: "Adventure · Role Playing",
+    platform: "Mobile",
+    price: 0,
+    tag: "#9 Most Hyped",
+    hype: "⚡ 2 votes",
+    launchDate: "Jul 28, 2026",
+    img: "https://cdn.akamai.steamstatic.com/steam/apps/1968240/header.jpg",
+    fallbackGradient: "linear-gradient(135deg,#0A0A1A 0%,#1A2A5A 100%)",
+    link: "https://minireview.io/upcoming/dysplaced",
+  },
+  {
+    id: 10,
+    title: "Pokémon Champions",
+    genre: "Action · Adventure",
+    platform: "Mobile",
+    price: 0,
+    tag: "#10 Most Hyped",
+    hype: "⚡ 2 votes",
+    launchDate: "Aug 4, 2026",
+    img: "https://www.pokemon.com/static2/img/og-default.jpg",
+    fallbackGradient: "linear-gradient(135deg,#1A0A00 0%,#7C3A00 100%)",
+    link: "https://minireview.io/upcoming/pokemon-champions",
+  },
+];
+
+/* ── STATE ── */
+let activeFilter  = 'all';
+let currentGameId = null;
+let cartCount     = 0;
+let purchasedIds  = new Set();
+let toastTimer    = null;
+
+/* ── DOM REFS ── */
+const grid          = document.getElementById('game-grid');
+const filterBar     = document.getElementById('filter-bar');
+const modalBackdrop = document.getElementById('modal-backdrop');
+const modalClose    = document.getElementById('modal-close');
+const confirmBtn    = document.getElementById('confirm-payment-btn');
+const toast         = document.getElementById('toast');
+const toastMsg      = document.getElementById('toast-msg');
+const toastClose    = document.getElementById('toast-close');
+const cartCountEl   = document.getElementById('cart-count');
+const cardFields    = document.getElementById('card-fields');
+const mobileFields  = document.getElementById('mobile-fields');
+
+/* ── BUILD CARD ── */
+function buildCard(game) {
+  const isPurchased = purchasedIds.has(game.id);
+  const isPC     = game.platform === 'PC';
+  const platCls  = isPC
+    ? 'text-indigo-400 bg-indigo-900/40 border-indigo-700/40'
+    : 'text-emerald-400 bg-emerald-900/40 border-emerald-700/40';
+  const priceStr = game.price === 0 ? 'FREE' : `$${game.price.toFixed(2)}`;
+  const priceColor = game.price === 0 ? 'text-neon' : 'text-neon';
+
+  return `
+    <div class="game-card bg-ink-700 rounded-2xl overflow-hidden border border-ink-500 shadow-card flex flex-col"
+         data-id="${game.id}" data-platform="${game.platform}">
+
+      <!-- Cover image -->
+      <div class="card-img-wrap" style="background:${game.fallbackGradient}">
+        <img
+          src="${game.img}"
+          alt="${game.title} cover art"
+          loading="lazy"
+          onerror="this.style.display='none'"
+        />
+        <!-- Rank badge -->
+        <span class="absolute top-3 left-3 z-10 text-xs font-bold px-2.5 py-1 rounded-full
+                     bg-black/60 backdrop-blur-sm text-white border border-white/10">
+          ${game.tag}
+        </span>
+        <!-- Platform badge -->
+        <span class="absolute top-3 right-3 z-10 text-xs font-semibold px-2.5 py-1 rounded-full border ${platCls}">
+          ${game.platform}
+        </span>
+        <!-- Launch date chip at bottom -->
+        <span class="absolute bottom-3 left-3 z-10 text-xs text-slate-300 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-full">
+          📅 ${game.launchDate}
+        </span>
+      </div>
+
+      <!-- Card body -->
+      <div class="flex flex-col flex-1 p-5 gap-3">
+        <div class="flex-1">
+          <h3 class="text-white font-semibold text-base leading-snug">${game.title}</h3>
+          <p class="text-slate-500 text-xs mt-1">${game.genre}</p>
+          <p class="text-xs mt-1.5 font-semibold" style="background:linear-gradient(90deg,#9F67FF,#34D399);-webkit-background-clip:text;-webkit-text-fill-color:transparent">${game.hype}</p>
+        </div>
+
+        <!-- Price + CTA -->
+        <div class="flex items-center justify-between gap-3 pt-3 border-t border-ink-500">
+          <p class="font-display text-2xl tracking-wider ${priceColor}">${priceStr}</p>
+          ${isPurchased
+            ? `<button disabled
+                 class="flex items-center gap-1.5 bg-neon/20 border border-neon/40 text-neon text-sm font-semibold px-4 py-2 rounded-lg cursor-default">
+                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                         d="M4 16v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1M12 12v6m0 0l-3-3m3 3l3-3M12 3v9"/>
+                 </svg>
+                 Download
+               </button>`
+            : `<button class="btn-buy buy-btn flex items-center gap-1.5 bg-brand hover:bg-brand-light
+                              text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-glow"
+                       data-id="${game.id}">
+                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                         d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 9m12-9l2 9"/>
+                 </svg>
+                 ${game.price === 0 ? 'Get Free' : 'Buy Now'}
+               </button>`
+          }
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ── RENDER GRID ── */
+function renderGrid() {
+  const filtered = activeFilter === 'all'
+    ? GAMES
+    : GAMES.filter(g => g.platform === activeFilter);
+  grid.innerHTML = filtered.length
+    ? filtered.map(buildCard).join('')
+    : `<div class="col-span-full text-center py-16 text-slate-500">No games found for this filter.</div>`;
+
+  document.querySelectorAll('.buy-btn').forEach(btn => {
+    btn.addEventListener('click', () => openModal(parseInt(btn.dataset.id)));
+  });
+}
+
+/* ── FILTERS ── */
+filterBar.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    filterBar.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter = btn.dataset.filter;
+    renderGrid();
+  });
+});
+
+/* ── OPEN MODAL ── */
+function openModal(gameId) {
+  const game = GAMES.find(g => g.id === gameId);
+  if (!game) return;
+  currentGameId = gameId;
+
+  document.getElementById('modal-game-title').textContent = game.genre;
+  document.getElementById('modal-game-name').textContent  = game.title;
+  document.getElementById('modal-price').textContent      = game.price === 0 ? 'FREE' : `$${game.price.toFixed(2)}`;
+
+  // Thumbnail image
+  const img = document.getElementById('modal-thumb-img');
+  img.src = game.img;
+  img.alt = game.title;
+  document.getElementById('modal-thumb').style.background = game.fallbackGradient;
+
+  showCardFields();
+  document.querySelector('input[name="payment"][value="card"]').checked = true;
+  modalBackdrop.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+/* ── CLOSE MODAL ── */
+function closeModal() {
+  modalBackdrop.classList.add('hidden');
+  document.body.style.overflow = '';
+  currentGameId = null;
+}
+modalClose.addEventListener('click', closeModal);
+modalBackdrop.addEventListener('click', e => { if (e.target === modalBackdrop) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ── PAYMENT METHOD TOGGLE ── */
+function showCardFields()   { cardFields.classList.remove('hidden'); mobileFields.classList.add('hidden'); }
+function showMobileFields() { mobileFields.classList.remove('hidden'); cardFields.classList.add('hidden'); }
+document.querySelectorAll('input[name="payment"]').forEach(radio => {
+  radio.addEventListener('change', () => radio.value === 'card' ? showCardFields() : showMobileFields());
+});
+
+/* ── CONFIRM PAYMENT ── */
+confirmBtn.addEventListener('click', () => {
+  if (!currentGameId) return;
+  const game = GAMES.find(g => g.id === currentGameId);
+  confirmBtn.disabled = true;
+  confirmBtn.innerHTML = `
+    <svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12a8 8 0 0 1 15.5-2.7"/>
+    </svg> Processing…`;
+
+  setTimeout(() => {
+    confirmBtn.disabled = false;
+    confirmBtn.innerHTML = `
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      </svg> Confirm Payment`;
+    purchasedIds.add(currentGameId);
+    cartCount++;
+    cartCountEl.textContent = cartCount;
+    cartCountEl.classList.remove('hidden');
+    const title = game.title;
+    closeModal();
+    renderGrid();
+    showToast(title);
+  }, 1800);
+});
+
+/* ── TOAST ── */
+function showToast(title) {
+  toastMsg.textContent = `${title} is ready to download. Enjoy the game!`;
+  toast.classList.remove('hidden');
+  toast.firstElementChild.classList.remove('toast-exit');
+  toast.firstElementChild.classList.add('toast-enter');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(dismissToast, 5000);
+}
+function dismissToast() {
+  toast.firstElementChild.classList.remove('toast-enter');
+  toast.firstElementChild.classList.add('toast-exit');
+  setTimeout(() => toast.classList.add('hidden'), 350);
+}
+toastClose.addEventListener('click', dismissToast);
+
+/* ── INIT ── */
+renderGrid();
+</script>
+</body>
+</html>
